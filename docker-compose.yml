@@ -1,0 +1,9 @@
+services:
+  discord-spotify:
+    build: .
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data

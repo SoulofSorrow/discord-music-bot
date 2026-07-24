@@ -1,0 +1,26 @@
+{
+  "name": "discord-spotify-bot",
+  "version": "1.0.0",
+  "description": "Discord bot with slash commands to play Spotify links in voice channels",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "keywords": [
+    "discord",
+    "spotify",
+    "music-bot",
+    "slash-commands"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "discord.js": "^14.19.3",
+    "dotenv": "^16.4.5",
+    "@noble/ciphers": "^2.2.0"
+  }
+}
