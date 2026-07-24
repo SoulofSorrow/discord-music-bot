@@ -77,6 +77,27 @@ resumes on demand rather than discarding it. Set `IDLE_TIMEOUT_MS=0` to disable.
 3. Else if `ALLOW_CALLER_FALLBACK=true` (default) → the caller's current voice channel.
 4. Else → asks an admin to `/bind` or `/follow`.
 
+## Web dashboard (optional)
+
+Set `WEB_ENABLED=true` to run a small website (Express) alongside the bot for controlling
+it from a browser instead of Discord — "Login with Discord" SSO, then a per-server
+dashboard with now-playing, queue editing (add/remove/reorder), playback controls, and
+volume.
+
+- **Access control**: after login, only servers where you're an **admin** (Manage Server
+  permission or a configured admin role) *and* the bot is also a member show up. There's no
+  separate DJ-only web access — admins already satisfy the DJ tier too. Every action
+  re-checks your roles live; nothing is cached from login beyond the guild list itself.
+- **Setup**:
+  1. In the [Discord Developer Portal](https://discord.com/developers/applications), open
+     your application → **OAuth2** → add a redirect: `<WEB_BASE_URL>/auth/discord/callback`
+     (e.g. `https://music.example.com/auth/discord/callback`) and copy the **Client Secret**.
+  2. Set `WEB_ENABLED=true`, `WEB_BASE_URL`, `DISCORD_CLIENT_SECRET`, and a random
+     `SESSION_SECRET` (e.g. `openssl rand -hex 32`) in `.env`.
+  3. The bot listens on `WEB_PORT` (default `3000`) as plain HTTP — put a reverse proxy
+     (nginx/Caddy/Traefik) in front for TLS; `docker-compose.yml` only publishes the port on
+     `127.0.0.1` by default.
+
 ## Persistence
 
 State lives in a SQLite database at `data/bot.db` (created automatically):

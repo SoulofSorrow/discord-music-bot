@@ -10,12 +10,24 @@ const { guildsWithQueue, guildsWithDashboard, close: closeDb } = require('./db')
 const { requireDj } = require('./permissions');
 const bus = require('./events');
 const { updateDashboard, scheduleDashboardUpdate } = require('./dashboard');
+const { startWebServer } = require('./web/server');
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 
 if (!DISCORD_TOKEN || !CLIENT_ID) {
   console.error('Missing DISCORD_TOKEN or CLIENT_ID in environment. Check your .env file.');
   process.exit(1);
+}
+
+// Web dashboard is entirely optional; only validate its env vars when enabled
+// so a missing DISCORD_CLIENT_SECRET etc. never takes down Discord-only setups.
+let webReady = process.env.WEB_ENABLED === 'true';
+if (webReady) {
+  const missing = ['DISCORD_CLIENT_SECRET', 'WEB_BASE_URL', 'SESSION_SECRET'].filter((k) => !process.env[k]);
+  if (missing.length) {
+    console.error(`WEB_ENABLED=true but missing env var(s): ${missing.join(', ')}. Web dashboard disabled.`);
+    webReady = false;
+  }
 }
 
 const client = new Client({
@@ -112,6 +124,13 @@ client.once('clientReady', async () => {
   // Redraw any configured dashboards on boot (reflects restored/idle state).
   for (const guildId of guildsWithDashboard()) {
     updateDashboard(client, guildId).catch(() => {});
+  }
+  if (webReady) {
+    try {
+      startWebServer(client);
+    } catch (err) {
+      console.error('Failed to start web dashboard:', err);
+    }
   }
 });
 
@@ -227,7 +246,7 @@ client.on('voiceStateUpdate', (oldState, newState) => {
 // Graceful shutdown: stop playback and close the DB without wiping the queue,
 // so the next boot restores and resumes it.
 let shuttingDown = false;
-function shutdown(signal) {
+async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`Received ${signal}, shutting down…`);
@@ -236,6 +255,10 @@ function shutdown(signal) {
   } catch (err) {
     console.error('shutdownAll failed:', err);
   }
+  // connection.destroy() above only queues the "leave channel" voice state
+  // update; without this pause, client.destroy()/exit() can close the gateway
+  // socket before it's actually flushed, leaving the bot stuck in voice.
+  await new Promise((resolve) => setTimeout(resolve, 1000));
   try {
     closeDb();
   } catch (err) {

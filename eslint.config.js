@@ -20,4 +20,14 @@ module.exports = [
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
+  {
+    files: ['src/web/public/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
 ];

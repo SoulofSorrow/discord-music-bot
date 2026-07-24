@@ -44,13 +44,17 @@ async function apiGet(endpoint, params) {
   const res = await fetch(`${API_BASE}/${endpoint}?${query}`);
   if (!res.ok) {
     let detail = '';
+    let reason = '';
     try {
       const body = await res.json();
       detail = body.error?.message || '';
+      reason = body.error?.errors?.[0]?.reason || '';
     } catch {
       /* ignore */
     }
-    throw new Error(`YouTube API ${endpoint} failed (${res.status})${detail ? `: ${detail}` : ''}`);
+    const err = new Error(`YouTube API ${endpoint} failed (${res.status})${detail ? `: ${detail}` : ''}`);
+    err.quotaExceeded = res.status === 403 && /quota/i.test(reason || detail);
+    throw err;
   }
   return res.json();
 }
@@ -104,6 +108,7 @@ function runYtDlpJson(target, extraArgs = []) {
       '--dump-json',
       '--no-warnings',
       '--skip-download',
+      '--no-playlist',
       ...ytdlpCookieArgs(),
       ...extraArgs,
       target,
@@ -128,19 +133,65 @@ function runYtDlpJson(target, extraArgs = []) {
   });
 }
 
+// Runs yt-dlp in flat-playlist mode and returns one { title, artist, url } per
+// entry, without resolving each video individually (used as the quota-free
+// playlist fallback).
+function runYtDlpPlaylistItems(playlistUrl) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('yt-dlp', [
+      '--dump-json',
+      '--flat-playlist',
+      '--no-warnings',
+      ...ytdlpCookieArgs(),
+      playlistUrl,
+    ]);
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (chunk) => (stdout += chunk));
+    proc.stderr.on('data', (chunk) => (stderr += chunk));
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      const lines = stdout.trim().split('\n').filter(Boolean);
+      if (code !== 0 || !lines.length) {
+        return reject(new Error(stderr.trim().split('\n').pop() || 'yt-dlp playlist lookup failed'));
+      }
+      try {
+        const items = lines
+          .map((line) => JSON.parse(line))
+          .filter((info) => info.title && info.title !== '[Deleted video]' && info.title !== '[Private video]')
+          .map((info) => ({ title: info.title, artist: '', url: watchUrl(info.id) }));
+        if (!items.length) return reject(new Error('That playlist has no playable videos.'));
+        resolve(items);
+      } catch {
+        reject(new Error('Could not parse yt-dlp playlist output'));
+      }
+    });
+  });
+}
+
 // --- public resolution API ----------------------------------------------
 
 // Search YouTube for a query and return the top hit as { url, title }.
-function searchYoutube(query) {
-  if (apiKey()) return apiSearch(query);
-  return runYtDlpJson(query, ['--default-search', 'ytsearch1']);
+async function searchYoutube(query) {
+  if (!apiKey()) return runYtDlpJson(query, ['--default-search', 'ytsearch1']);
+  try {
+    return await apiSearch(query);
+  } catch (err) {
+    if (!err.quotaExceeded) throw err;
+    return runYtDlpJson(query, ['--default-search', 'ytsearch1']);
+  }
 }
 
 // Look up metadata for a single YouTube URL as { url, title }.
-function getYoutubeInfo(url) {
+async function getYoutubeInfo(url) {
   const parsed = parseYoutube(url);
-  if (apiKey() && parsed?.type === 'video') return apiVideoInfo(parsed.id);
-  return runYtDlpJson(url);
+  if (!apiKey() || parsed?.type !== 'video') return runYtDlpJson(url);
+  try {
+    return await apiVideoInfo(parsed.id);
+  } catch (err) {
+    if (!err.quotaExceeded) throw err;
+    return runYtDlpJson(url);
+  }
 }
 
 // Resolve any YouTube URL into a queueable item list: { parsed, items }.
@@ -149,10 +200,13 @@ async function resolveYoutube(url) {
   if (!parsed) throw new Error('That does not look like a valid YouTube link.');
 
   if (parsed.type === 'playlist') {
-    if (!apiKey()) {
-      throw new Error('Playlist links require YOUTUBE_API_KEY to be configured.');
+    if (!apiKey()) return { parsed, items: await runYtDlpPlaylistItems(url) };
+    try {
+      return { parsed, items: await apiPlaylistItems(parsed.id) };
+    } catch (err) {
+      if (!err.quotaExceeded) throw err;
+      return { parsed, items: await runYtDlpPlaylistItems(url) };
     }
-    return { parsed, items: await apiPlaylistItems(parsed.id) };
   }
 
   const video = await getYoutubeInfo(url);
@@ -170,6 +224,7 @@ function createAudioProcess(url, volume = 100) {
     '--no-warnings',
     '--quiet',
     '--no-part',
+    '--no-playlist',
     ...ytdlpCookieArgs(),
     url,
   ]);

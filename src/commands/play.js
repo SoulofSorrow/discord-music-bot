@@ -1,7 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { getGuildConfig, setTextChannel } = require('../config');
-const { parseSpotifyUrl, resolveSpotifyLink } = require('../spotify');
-const { isYoutubeUrl, resolveYoutube, searchYoutube } = require('../youtube');
+const { resolveLinkOrSearch } = require('../resolveLink');
 const { getGuildPlayer, waitForConnectionReady } = require('../player');
 const { requireDj } = require('../permissions');
 
@@ -29,16 +28,7 @@ module.exports = {
 
     let resolved;
     try {
-      if (isYoutubeUrl(link)) {
-        resolved = await resolveYoutube(link);
-      } else if (parseSpotifyUrl(link)) {
-        resolved = await resolveSpotifyLink(link);
-      } else {
-        // Free-text search term → resolve the top YouTube hit up front so the
-        // announced title is correct.
-        const video = await searchYoutube(link);
-        resolved = { parsed: { type: 'search' }, items: [{ title: video.title, artist: '', url: video.url }] };
-      }
+      resolved = await resolveLinkOrSearch(link);
     } catch (err) {
       return interaction.editReply(`Could not resolve that: ${err.message}`);
     }
