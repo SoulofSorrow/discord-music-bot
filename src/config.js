@@ -1,79 +1,153 @@
 const fs = require('fs');
 const path = require('path');
+const { getConfigRow, upsertConfigRow } = require('./db');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const DATA_FILE = path.join(DATA_DIR, 'guilds.json');
+const DEFAULT_CONFIG = {
+  mode: null,
+  channelId: null,
+  userId: null,
+  textChannelId: null,
+  queueChannelId: null,
+  queueMessageId: null,
+  volume: 100,
+  djRoleIds: [],
+  adminRoleIds: [],
+};
 
-function load() {
-  if (!fs.existsSync(DATA_FILE)) return {};
+function rowToConfig(row) {
+  if (!row) return { ...DEFAULT_CONFIG };
+  return {
+    mode: row.mode ?? null,
+    channelId: row.channel_id ?? null,
+    userId: row.user_id ?? null,
+    textChannelId: row.text_channel_id ?? null,
+    queueChannelId: row.queue_channel_id ?? null,
+    queueMessageId: row.queue_message_id ?? null,
+    volume: row.volume ?? 100,
+    djRoleIds: safeParseArray(row.dj_role_ids),
+    adminRoleIds: safeParseArray(row.admin_role_ids),
+  };
+}
+
+function safeParseArray(json) {
   try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    const value = JSON.parse(json || '[]');
+    return Array.isArray(value) ? value : [];
   } catch {
-    return {};
+    return [];
   }
 }
 
-function save(data) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+function configToRow(guildId, config) {
+  return {
+    guild_id: guildId,
+    mode: config.mode,
+    channel_id: config.channelId,
+    user_id: config.userId,
+    text_channel_id: config.textChannelId,
+    queue_channel_id: config.queueChannelId,
+    queue_message_id: config.queueMessageId,
+    volume: config.volume,
+    dj_role_ids: JSON.stringify(config.djRoleIds),
+    admin_role_ids: JSON.stringify(config.adminRoleIds),
+  };
 }
 
-let store = load();
-
-const DEFAULT_CONFIG = { mode: null, channelId: null, userId: null, allowedRoleIds: [], volume: 100 };
-
 function getGuildConfig(guildId) {
-  const existing = store[guildId];
-  if (!existing) return { ...DEFAULT_CONFIG };
-  return { ...DEFAULT_CONFIG, ...existing };
+  return rowToConfig(getConfigRow(guildId));
+}
+
+function updateGuildConfig(guildId, patch) {
+  const next = { ...getGuildConfig(guildId), ...patch };
+  upsertConfigRow(configToRow(guildId, next));
+  return next;
 }
 
 function setBoundChannel(guildId, channelId) {
-  const current = getGuildConfig(guildId);
-  store[guildId] = { ...current, mode: 'channel', channelId, userId: null };
-  save(store);
+  updateGuildConfig(guildId, { mode: 'channel', channelId, userId: null });
 }
 
 function setFollowUser(guildId, userId) {
-  const current = getGuildConfig(guildId);
-  store[guildId] = { ...current, mode: 'follow', channelId: null, userId };
-  save(store);
+  updateGuildConfig(guildId, { mode: 'follow', channelId: null, userId });
 }
 
 function clearTarget(guildId) {
-  const current = getGuildConfig(guildId);
-  store[guildId] = { ...current, mode: null, channelId: null, userId: null };
-  save(store);
+  updateGuildConfig(guildId, { mode: null, channelId: null, userId: null });
 }
 
-function addAllowedRole(guildId, roleId) {
-  const current = getGuildConfig(guildId);
-  if (!current.allowedRoleIds.includes(roleId)) current.allowedRoleIds.push(roleId);
-  store[guildId] = current;
-  save(store);
-  return current.allowedRoleIds;
+function setTextChannel(guildId, textChannelId) {
+  updateGuildConfig(guildId, { textChannelId });
 }
 
-function removeAllowedRole(guildId, roleId) {
-  const current = getGuildConfig(guildId);
-  current.allowedRoleIds = current.allowedRoleIds.filter((id) => id !== roleId);
-  store[guildId] = current;
-  save(store);
-  return current.allowedRoleIds;
+function setQueueChannel(guildId, queueChannelId) {
+  // Switching channels invalidates the old dashboard message.
+  updateGuildConfig(guildId, { queueChannelId, queueMessageId: null });
+}
+
+function clearQueueChannel(guildId) {
+  updateGuildConfig(guildId, { queueChannelId: null, queueMessageId: null });
+}
+
+function setQueueMessageId(guildId, queueMessageId) {
+  updateGuildConfig(guildId, { queueMessageId });
 }
 
 function setVolume(guildId, volume) {
-  const current = getGuildConfig(guildId);
-  store[guildId] = { ...current, volume };
-  save(store);
+  updateGuildConfig(guildId, { volume });
 }
+
+function addRole(guildId, tier, roleId) {
+  const key = tier === 'admin' ? 'adminRoleIds' : 'djRoleIds';
+  const current = getGuildConfig(guildId);
+  if (!current[key].includes(roleId)) current[key].push(roleId);
+  updateGuildConfig(guildId, { [key]: current[key] });
+  return current[key];
+}
+
+function removeRole(guildId, tier, roleId) {
+  const key = tier === 'admin' ? 'adminRoleIds' : 'djRoleIds';
+  const current = getGuildConfig(guildId);
+  const next = current[key].filter((id) => id !== roleId);
+  updateGuildConfig(guildId, { [key]: next });
+  return next;
+}
+
+// One-time import of the legacy data/guilds.json into SQLite. allowedRoleIds
+// map onto the new DJ tier. The file is renamed afterwards so this runs once.
+function migrateLegacyJson() {
+  const legacyPath = path.join(__dirname, '..', 'data', 'guilds.json');
+  if (!fs.existsSync(legacyPath)) return;
+  try {
+    const store = JSON.parse(fs.readFileSync(legacyPath, 'utf8'));
+    for (const [guildId, cfg] of Object.entries(store)) {
+      if (getConfigRow(guildId)) continue; // already in DB, don't clobber
+      updateGuildConfig(guildId, {
+        mode: cfg.mode ?? null,
+        channelId: cfg.channelId ?? null,
+        userId: cfg.userId ?? null,
+        volume: cfg.volume ?? 100,
+        djRoleIds: Array.isArray(cfg.allowedRoleIds) ? cfg.allowedRoleIds : [],
+      });
+    }
+    fs.renameSync(legacyPath, `${legacyPath}.migrated`);
+    console.log(`Migrated ${Object.keys(store).length} guild(s) from guilds.json into SQLite.`);
+  } catch (err) {
+    console.error('Failed to migrate legacy guilds.json:', err.message);
+  }
+}
+
+migrateLegacyJson();
 
 module.exports = {
   getGuildConfig,
   setBoundChannel,
   setFollowUser,
   clearTarget,
-  addAllowedRole,
-  removeAllowedRole,
+  setTextChannel,
+  setQueueChannel,
+  clearQueueChannel,
+  setQueueMessageId,
   setVolume,
+  addRole,
+  removeRole,
 };

@@ -1,19 +1,23 @@
 {
-  "name": "discord-spotify-bot",
-  "version": "1.0.0",
-  "description": "Discord bot with slash commands to play Spotify links in voice channels",
+  "name": "discord-music-bot",
+  "version": "2.0.0",
+  "description": "Discord music bot: YouTube (Data API v3) + Spotify links, DJ/admin roles, follow mode, SQLite-persisted queue",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node --experimental-sqlite src/index.js",
+    "lint": "eslint .",
+    "test": "node --experimental-sqlite --test"
   },
   "engines": {
     "node": ">=22.12.0"
   },
   "keywords": [
     "discord",
+    "youtube",
     "spotify",
     "music-bot",
-    "slash-commands"
+    "slash-commands",
+    "sqlite"
   ],
   "author": "",
   "license": "MIT",
@@ -22,5 +26,10 @@
     "discord.js": "^14.19.3",
     "dotenv": "^16.4.5",
     "@noble/ciphers": "^2.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "eslint": "^9.13.0",
+    "globals": "^15.11.0"
   }
 }

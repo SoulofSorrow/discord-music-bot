@@ -4,11 +4,11 @@ RUN apk add --no-cache yt-dlp ffmpeg
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 COPY src ./src
 
 VOLUME ["/app/data"]
 
-CMD ["node", "src/index.js"]
+CMD ["node", "--experimental-sqlite", "src/index.js"]

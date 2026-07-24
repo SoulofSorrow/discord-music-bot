@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Secrets
+.env
+
+# Runtime data (SQLite DB + WAL/SHM sidecars, legacy migrated config)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/guilds.json
+data/guilds.json.migrated
+
+# Logs / OS cruft
+*.log
+.DS_Store

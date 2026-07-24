@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { getGuildConfig, setVolume } = require('../config');
+const { requireDj } = require('../permissions');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,6 +15,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    if (!(await requireDj(interaction))) return;
     const percent = interaction.options.getInteger('percent');
     const guildId = interaction.guild.id;
 
