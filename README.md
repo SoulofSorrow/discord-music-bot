@@ -115,7 +115,10 @@ renamed to `guilds.json.migrated`.
 1. Create a Discord application + bot at https://discord.com/developers/applications, enable the
    **Server Members Intent** (needed for role checks and follow mode), and invite it with the `bot` +
    `applications.commands` scopes and at least: View Channel, Connect, Speak, Send Messages.
-2. Copy `.env.example` to `.env` and fill in `DISCORD_TOKEN`, `CLIENT_ID`, optionally `GUILD_ID`.
+2. Copy `.env.example` to `.env` and fill in `DISCORD_TOKEN`, `CLIENT_ID`. Leave `GUILD_ID` empty so
+   slash commands register globally and work on every server the bot is invited to (all state — queue,
+   config, permissions, dashboards — is already per-guild). Only set `GUILD_ID` during development, to get
+   instant command updates on one test server instead of waiting up to an hour for global propagation.
 3. Add `YOUTUBE_API_KEY` (Google Cloud console → enable **YouTube Data API v3**) for reliable search and
    playlist support.
 4. Optionally add `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` for album/playlist links.
@@ -149,8 +152,9 @@ npm run lint    # ESLint (flat config)
 npm test        # node:test runner (uses an isolated temp DATA_DIR)
 ```
 
-CI runs on Gitea Actions (`.gitea/workflows/ci.yml`): `lint`, `test`, and a multi-arch
-(`linux/amd64` + `linux/arm64`) Docker build.
+CI runs on both Gitea Actions (`.gitea/workflows/ci.yml`) and GitHub Actions
+(`.github/workflows/ci.yml`): `lint`, `test`, and a multi-arch (`linux/amd64` + `linux/arm64`)
+Docker build, pushed to the Gitea registry and `ghcr.io` respectively.
 
 ## Notes
 

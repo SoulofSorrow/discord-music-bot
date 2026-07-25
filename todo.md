@@ -13,9 +13,9 @@
 - [x] Auto-Leave bei Leerlauf / allein im Channel (IDLE_TIMEOUT_MS)
 - [x] Graceful Shutdown (SIGINT/SIGTERM): stoppt Playback, WAL-Checkpoint, Queue bleibt erhalten
 - [x] yt-dlp-Cookies via YTDLP_COOKIES / YTDLP_COOKIES_FROM_BROWSER
+- [x] CI + Lint/Tests (GitHub + Gitea, Dual-Registry-Standard) — .gitea/workflows/ci.yml + .github/workflows/ci.yml, push zu Gitea- bzw. GHCR-Registry
 
 # Deferred (auf Wunsch)
 
 - [ ] Track-Dauer & Gesamtlänge im Embed (braucht zusätzliche YouTube-API-Calls / Spotify-Dauer)
 - [ ] Such-Auswahl-Menü statt automatisch Treffer 1
-- [ ] CI + Lint/Tests (GitHub + Gitea, Dual-Registry-Standard)
