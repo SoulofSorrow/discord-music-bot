@@ -1,6 +1,7 @@
 services:
   discord-music:
-    build: .
+    image: ghcr.io/soulofsorrow/discord-music-bot:latest
+    container_name: discord-music-bot
     restart: unless-stopped
     env_file:
       - .env

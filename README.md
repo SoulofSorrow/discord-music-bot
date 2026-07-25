@@ -126,11 +126,13 @@ renamed to `guilds.json.migrated`.
 ### Run in Docker (recommended)
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-Reads env vars from `.env`, bundles `yt-dlp` + `ffmpeg`, and persists `./data` (SQLite DB) via a bind mount
-so state survives restarts/rebuilds. Update after pulling new code with the same command.
+Pulls the prebuilt image from `ghcr.io/soulofsorrow/discord-music-bot` (built by CI on every push to `main`
+and on `v*.*.*` tags — see [Development](#development)), reads env vars from `.env`, and persists `./data`
+(SQLite DB) via a bind mount so state survives restarts. Update to a new version with the same two commands.
 
 ### Run locally
 
