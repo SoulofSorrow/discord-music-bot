@@ -3,7 +3,10 @@
 ## Docker image (`Dockerfile`)
 
 - Base `node:22-alpine`; `apk add yt-dlp ffmpeg`.
-- `npm ci --omit=dev`; only `src/` is copied.
+- Stage `deps` (`--platform=$BUILDPLATFORM`): `npm ci --omit=dev --os=linux --cpu=<target>`
+  installs the target prebuild of `@snazzah/davey`; the build fails if
+  `node_modules/@snazzah/davey-linux-<cpu>-musl` is missing.
+- Runtime copies `node_modules` from `deps`; only `src/` is copied from the repo.
 - `VOLUME /app/data` (SQLite DB).
 - `CMD ["node", "--experimental-sqlite", "src/index.js"]`.
 - No `.dockerignore` in the repository; the `COPY` lines only take
@@ -24,7 +27,7 @@ Update: `docker compose pull && docker compose up -d`.
 
 ## CI
 
-Emulation: `docker/setup-qemu-action` is pinned to `tonistiigi/binfmt:qemu-v9.2.2`; with `latest` (QEMU 10) Node crashed with `Illegal instruction` in the arm64 build and the job hung. Job `build-and-push` has `timeout-minutes: 45`.
+Emulation: node/npm never run under QEMU. Every `npm` stage of the `Dockerfile` uses `FROM --platform=$BUILDPLATFORM`; only the runtime stage is built for the target platform. Under emulation Node crashed with `Illegal instruction` in the arm64 build and the job hung, with QEMU 10 and with the pinned `tonistiigi/binfmt:qemu-v9.2.2` (pin kept). Job `build-and-push` has `timeout-minutes: 45`.
 
 Two equivalent workflows, triggered on push to `main`, tags `v*.*.*`, pull
 requests to `main` and manual dispatch:
