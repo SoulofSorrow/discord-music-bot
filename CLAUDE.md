@@ -1,0 +1,10 @@
+@AGENTS.md
+
+## Claude Code specifics
+
+- Project skills live in `.claude/skills/`. Invoke the matching skill before
+  starting a task it covers.
+- `.claude/settings.json` allows lint and test commands and denies reading
+  `.env` and `data/`.
+- Run `npm run lint` and `npm test` before reporting a task as done. Report
+  failures with the decisive output line.
