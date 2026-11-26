@@ -38,9 +38,7 @@ Jobs: `verify-lockfile` (`npm install --package-lock-only` must not change
 `package-lock.json`) -> `lint` and `test` -> `build-and-push` (multi-arch
 `linux/amd64,linux/arm64`, push skipped for pull requests).
 
-Image tags (`docker/metadata-action`): branch name, `pr-<n>`, semver
-`{{version}}` and `{{major}}.{{minor}}` on tags, `sha-<short>`, `latest` on the
-default branch.
+Image tags: every pushed build gets `sha-<short>` (also pushes to `main`). A release tag `vX.Y.Z` additionally pushes `X.Y.Z` and `latest`; a prerelease tag `vX.Y.Z-rc1` pushes `X.Y.Z-rc1` without `latest`. No branch tags (no `main`), no floating `X` / `X.Y` tags. Pull requests build without pushing.
 
 ## Release
 
