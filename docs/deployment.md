@@ -24,6 +24,8 @@ Update: `docker compose pull && docker compose up -d`.
 
 ## CI
 
+Emulation: `docker/setup-qemu-action` is pinned to `tonistiigi/binfmt:qemu-v9.2.2`; with `latest` (QEMU 10) Node crashed with `Illegal instruction` in the arm64 build and the job hung. Job `build-and-push` has `timeout-minutes: 45`.
+
 Two equivalent workflows, triggered on push to `main`, tags `v*.*.*`, pull
 requests to `main` and manual dispatch:
 
