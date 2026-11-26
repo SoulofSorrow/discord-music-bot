@@ -158,6 +158,11 @@ CI runs on both Gitea Actions (`.gitea/workflows/ci.yml`) and GitHub Actions
 (`.github/workflows/ci.yml`): `lint`, `test`, and a multi-arch (`linux/amd64` + `linux/arm64`)
 Docker build, pushed to the Gitea registry and `ghcr.io` respectively.
 
+## Documentation
+
+Detailed, agent-oriented documentation lives in [docs/](docs/README.md).
+Instructions for AI coding agents: [AGENTS.md](AGENTS.md).
+
 ## Notes
 
 - The queue's currently-playing track keeps its DB row until it finishes, so an unexpected restart replays
